@@ -24,6 +24,13 @@ function initApp() {
     
     const manualAddBtn = document.getElementById('btn-manual-add');
     if (manualAddBtn) manualAddBtn.addEventListener('click', processManualAdd);
+
+    const manualNumbersInput = document.getElementById('manual-numbers');
+    if (manualNumbersInput) {
+        manualNumbersInput.addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') processManualAdd();
+        });
+    }
     
     const saveFirebaseBtn = document.getElementById('btn-save-firebase');
     if (saveFirebaseBtn) saveFirebaseBtn.addEventListener('click', saveFirebaseConfig);
@@ -248,10 +255,10 @@ function processManualAdd() {
         renderCollectionGrid();
         renderDeckBuilderSidebar();
         syncCollectionToCloud();
-        alert(`Added ${addedCount} cards!`);
+        showToast(`Added ${addedCount} cards!`);
         numbersInput.value = "";
     } else {
-        alert("No valid card numbers found for this set.");
+        showToast("No valid card numbers found for this set.", "error");
     }
 }
 
@@ -441,3 +448,28 @@ window.removeFromDeck = function(index) {
 };
 
 window.showFirebaseConfigModal = showFirebaseConfigModal;
+
+// --- Toast Notification ---
+window.showToast = function(message, type = 'success') {
+    let toast = document.getElementById('scan-toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'scan-toast';
+        toast.style.cssText = `
+            position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+            color: white; padding: 12px 24px; border-radius: 12px;
+            font-size: 0.9rem; font-weight: 500; z-index: 2000;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4); transition: opacity 0.3s;
+        `;
+        document.body.appendChild(toast);
+    }
+    toast.innerText = message;
+    toast.style.background = type === 'error' ? '#cf222e' : '#1a7f37';
+    toast.style.opacity = '1';
+    toast.style.display = 'block';
+
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => { toast.style.display = 'none'; }, 300);
+    }, 3000);
+};

@@ -154,7 +154,7 @@ async function processMediaWithGemini(files) {
             };
         }));
 
-        statusText.innerText = `Gemini is scanning your ${currentScanMode === 'edition' ? 'edition grid' : 'collection'}...`;
+        statusText.innerText = `Gemini (Flash 2.0) is scanning your ${currentScanMode === 'edition' ? 'edition grid' : 'collection'}...`;
 
         const prompt = currentScanMode === 'edition'
             ? getEditionViewPrompt(files.length)
@@ -169,7 +169,8 @@ async function processMediaWithGemini(files) {
             }]
         };
 
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+        // Use a valid model name (gemini-1.5-flash or gemini-2.0-flash-exp)
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody)
@@ -183,10 +184,12 @@ async function processMediaWithGemini(files) {
         const data = await response.json();
         const responseText = data.candidates[0].content.parts[0].text;
 
-        let cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-        const scannedCards = JSON.parse(cleanJson);
+        // Robust JSON extraction (handles markdown and text wrapping)
+        const jsonMatch = responseText.match(/\[[\s\S]*\]|\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error("AI returned invalid data format. Try again.");
+        const scannedCards = JSON.parse(jsonMatch[0]);
 
-        statusText.innerText = `Found ${scannedCards.length} items! Preparing review...`;
+        statusText.innerText = `Preparing review...`;
 
         setTimeout(() => {
             statusPanel.classList.add('hidden');
@@ -403,30 +406,6 @@ function resetScanUI() {
     pendingFiles = [];
 }
 
-// --- Toast Notification ---
-function showToast(message) {
-    let toast = document.getElementById('scan-toast');
-    if (!toast) {
-        toast = document.createElement('div');
-        toast.id = 'scan-toast';
-        toast.style.cssText = `
-            position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
-            background: #1a7f37; color: white; padding: 12px 24px; border-radius: 12px;
-            font-size: 0.9rem; font-weight: 500; z-index: 2000;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.4); transition: opacity 0.3s;
-        `;
-        document.body.appendChild(toast);
-    }
-    toast.innerText = message;
-    toast.style.opacity = '1';
-    toast.style.display = 'block';
-
-    setTimeout(() => {
-        toast.style.opacity = '0';
-        setTimeout(() => { toast.style.display = 'none'; }, 300);
-    }, 3000);
-}
-
 // --- Helpers ---
 function fileToBase64(file) {
     return new Promise((resolve, reject) => {
@@ -439,6 +418,14 @@ function fileToBase64(file) {
 
 function getCardByName(name) {
     if (!name) return null;
-    const lowerName = name.toLowerCase().trim();
-    return TCGP_CARDS.find(c => c.name.toLowerCase() === lowerName);
+    const lowerName = name.toLowerCase().trim()
+        .replace(/\s*ex$/i, '') // Remove 'EX' for looser matching
+        .replace(/[^a-z0-9]/g, ''); // Remove punctuation
+
+    return TCGP_CARDS.find(c => {
+        const dbName = c.name.toLowerCase().trim()
+            .replace(/\s*ex$/i, '')
+            .replace(/[^a-z0-9]/g, '');
+        return dbName === lowerName || dbName.includes(lowerName) || lowerName.includes(dbName);
+    });
 }
