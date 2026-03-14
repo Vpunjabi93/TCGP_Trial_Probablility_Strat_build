@@ -36,9 +36,9 @@
                     
                     <div class="upload-zone" id="upload-zone">
                         <div class="upload-icon">📸</div>
-                        <h3>Tap to Upload Video or Screenshot</h3>
-                        <p>MP4, WEBM, PNG, or JPG</p>
-                        <input type="file" id="video-upload" accept="video/mp4,video/webm,video/quicktime,image/png,image/jpeg,image/webp" hidden>
+                        <h3>Tap to Upload Screenshots</h3>
+                        <p>MP4, WEBM, PNG, or JPG<br><small>Tip: Select multiple screenshots for 100% accuracy!</small></p>
+                        <input type="file" id="video-upload" accept="video/mp4,video/webm,video/quicktime,image/png,image/jpeg,image/webp" multiple hidden>
                     </div>
 
                     <div id="scan-status" class="status-panel hidden">
@@ -175,6 +175,21 @@
                 <div class="modal-actions">
                     <a href="https://aistudio.google.com/app/apikey" target="_blank" class="link">Get API Key &rarr;</a>
                     <button id="btn-save-key" class="btn-primary">Save Key</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Review Scan Modal for 100% Accuracy -->
+        <div id="modal-review" class="modal hidden">
+            <div class="modal-content review-modal-content">
+                <h2>Review Gemini Scan</h2>
+                <p id="review-status-text">Gemini found the following cards. Verify for 100% accuracy before saving.</p>
+                <div id="review-card-list" class="review-list">
+                    <!-- Populated by gemini.js dynamically -->
+                </div>
+                <div class="modal-actions">
+                    <button id="btn-cancel-review" class="btn-ghost">Cancel</button>
+                    <button id="btn-confirm-review" class="btn-primary">Confirm & Save</button>
                 </div>
             </div>
         </div>

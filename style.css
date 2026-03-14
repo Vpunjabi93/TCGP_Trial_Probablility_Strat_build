@@ -314,6 +314,14 @@ input:focus {
   object-fit: contain;
   border-radius: 4px;
   display: block;
+  transition: filter 0.2s, opacity 0.2s;
+}
+.tcgp-card:not(.owned) .card-real-img {
+  filter: grayscale(100%);
+  opacity: 0.3;
+}
+.tcgp-card:not(.owned) .card-name {
+  opacity: 0.5;
 }
 .owned .card-img-placeholder, .owned .card-real-img {
   background: transparent;
@@ -559,3 +567,50 @@ input[type="range"] {
   align-items: center;
 }
 .link { color: var(--accent-gold); text-decoration: none; font-size: 0.9rem; }
+
+/* Review Scan Modal Specifics */
+.review-modal-content {
+  max-width: 500px;
+}
+.review-list {
+  max-height: 50vh;
+  overflow-y: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-dark);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.review-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-surface);
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+.review-item-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.review-img {
+  width: 40px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+.review-qty-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.review-qty {
+  font-weight: bold;
+  font-size: 1.1rem;
+  width: 24px;
+  text-align: center;
+}

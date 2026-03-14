@@ -7,14 +7,14 @@ document.addEventListener('DOMContentLoaded', () => {
     uploadZone.addEventListener('click', () => uploadInput.click());
     
     uploadInput.addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if(!file) return;
+        const files = Array.from(e.target.files);
+        if(files.length === 0) return;
         
-        await processVideoWithGemini(file);
+        await processMediaWithGemini(files);
     });
 });
 
-async function processVideoWithGemini(file) {
+async function processMediaWithGemini(files) {
     const apiKey = sessionStorage.getItem('gemini_api_key');
     if(!apiKey) {
         alert("Please set your Gemini API key first!");
@@ -30,22 +30,24 @@ async function processVideoWithGemini(file) {
     statusPanel.classList.remove('hidden');
 
     try {
-        // Step 1: In a real backend, we'd use the proper Google AI Studio Files API url for big videos.
-        // For this purely frontend browser app, we must convert the video to base64 to send inline.
-        // NOTE: This limits video size realistically to ~20MB in browser, which is fine for short 10-15s TCGP scrolls.
+        statusText.innerText = `Encoding ${files.length} file(s) for analysis...`;
         
-        statusText.innerText = "Encoding video for analysis...";
-        const base64Video = await fileToBase64(file);
-        const mimeType = file.type || 'video/mp4';
+        const inlineDataParts = await Promise.all(files.map(async file => {
+            const base64 = await fileToBase64(file);
+            return {
+                "inline_data": {
+                    "mime_type": file.type || 'image/jpeg',
+                    "data": base64.split(',')[1]
+                }
+            };
+        }));
 
-        statusText.innerText = `Gemini is scanning your ${file.type.startsWith('image/') ? 'screenshot' : 'video'}...`;
-
-        const isImage = file.type.startsWith('image/');
-        const mediaTypeLabel = isImage ? "screenshot" : "screen recording";
+        statusText.innerText = `Gemini is scanning your structured input...`;
 
         const prompt = `
-        This is a ${mediaTypeLabel} of a Pokémon TCG Pocket card collection. 
-        For each distinct card visibly shown in the grid, return the card name and how many copies of it appear (look at the quantity badges).
+        This is a set of ${files.length} screenshot(s) / video(s) of a Pokémon TCG Pocket card collection. 
+        For each distinct card visibly shown across ALL files, return the card name exactly as it appears in the official game, and how many copies of it appear (look at the quantity badges).
+        Combine the total counts logically without double counting the same card overlapping between two screenshots.
         Only return a strict JSON array of objects with 'name' and 'count' properties. No markdown, no extra text.
         Example: [{"name":"Pikachu EX","count":1},{"name":"Charmander","count":3}]
         `;
@@ -54,12 +56,7 @@ async function processVideoWithGemini(file) {
             contents: [{
                 parts: [
                     { "text": prompt },
-                    { 
-                        "inline_data": { 
-                            "mime_type": mimeType, 
-                            "data": base64Video.split(',')[1] 
-                        } 
-                    }
+                    ...inlineDataParts
                 ]
             }]
         };
@@ -78,18 +75,21 @@ async function processVideoWithGemini(file) {
         const data = await response.json();
         const responseText = data.candidates[0].content.parts[0].text;
         
-        // Clean JSON formatting if Gemini adds markdown blocks
+        // Clean JSON formatting
         let cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
         const scannedCards = JSON.parse(cleanJson);
         
-        statusText.innerText = `Found ${scannedCards.length} unique cards! Organizing...`;
+        statusText.innerText = `Found ${scannedCards.length} unique cards! Preparing review...`;
         
-        // Step 3: Parse and save to collection
-        saveScannedCollection(scannedCards);
+        // Step 3: Map to actual DB cards and open Review Modal
+        setTimeout(() => {
+            document.getElementById('scan-status').classList.add('hidden');
+            showReviewModal(scannedCards);
+        }, 500);
 
     } catch (error) {
         console.error("Gemini Error:", error);
-        alert(`Analysis failed: ${error.message}\nEnsure your API key is valid, and media is not too large.`);
+        alert(`Analysis failed: ${error.message}\nEnsure your API key is valid.`);
         uploadZone.classList.remove('hidden');
         statusPanel.classList.add('hidden');
     }
@@ -105,33 +105,112 @@ function fileToBase64(file) {
     });
 }
 
-function saveScannedCollection(scannedData) {
-    // Current collection state mapping card IDs to quantity
-    let myCollection = JSON.parse(localStorage.getItem('tcgp_collection') || '{}');
-    let addedCount = 0;
+let pendingReviewCollection = {};
+
+function showReviewModal(scannedData) {
+    const modal = document.getElementById('modal-review');
+    const listEl = document.getElementById('review-card-list');
+    listEl.innerHTML = '';
+    pendingReviewCollection = {};
+
+    let matchCount = 0;
 
     scannedData.forEach(item => {
-        // Fuzzy match logic
-        const dbCard = getCardByName(item.name); 
+        const dbCard = getCardByName(item.name);
         if(dbCard) {
-            // Add or overwrite the quantity
-            myCollection[dbCard.id] = item.count || 1;
-            addedCount++;
+            // Store by ID in our pending map
+            pendingReviewCollection[dbCard.id] = (pendingReviewCollection[dbCard.id] || 0) + (item.count || 1);
         }
+    });
+
+    // Render items
+    renderReviewList();
+
+    modal.classList.remove('hidden');
+
+    // Bind Review Action Buttons
+    document.getElementById('btn-cancel-review').onclick = () => {
+        modal.classList.add('hidden');
+        document.getElementById('upload-zone').classList.remove('hidden');
+    };
+
+    document.getElementById('btn-confirm-review').onclick = () => {
+        saveReviewedCollection();
+        modal.classList.add('hidden');
+    };
+}
+
+function renderReviewList() {
+    const listEl = document.getElementById('review-card-list');
+    listEl.innerHTML = '';
+    
+    // Sort array of IDs so it renders consistently
+    const sortedIds = Object.keys(pendingReviewCollection).sort();
+
+    if(sortedIds.length === 0) {
+        listEl.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px;">No matchable cards found in the scan.</p>';
+        return;
+    }
+
+    sortedIds.forEach(id => {
+        const qty = pendingReviewCollection[id];
+        const dbCard = getAllCards().find(c => c.id === id);
+        
+        if(!dbCard) return;
+
+        const itemEl = document.createElement('div');
+        itemEl.className = 'review-item';
+        
+        itemEl.innerHTML = `
+            <div class="review-item-info">
+                ${dbCard.img ? `<img src="${dbCard.img}" class="review-img">` : `<div style="width:40px;height:56px;background:#333;"></div>`}
+                <div>
+                    <strong>${dbCard.name}</strong><br>
+                    <small style="color:var(--text-muted)">${dbCard.set} • ${dbCard.rarity}</small>
+                </div>
+            </div>
+            <div class="review-qty-controls">
+                <button class="btn-ghost" onclick="modifyReviewQty('${dbCard.id}', -1)">-</button>
+                <span class="review-qty">${qty}</span>
+                <button class="btn-ghost" onclick="modifyReviewQty('${dbCard.id}', 1)">+</button>
+            </div>
+        `;
+        listEl.appendChild(itemEl);
+    });
+}
+
+// Global scope so inline onclick works
+window.modifyReviewQty = function(cardId, change) {
+    let currentQty = pendingReviewCollection[cardId] || 0;
+    let newQty = currentQty + change;
+    
+    if(newQty <= 0) {
+        delete pendingReviewCollection[cardId];
+    } else {
+        pendingReviewCollection[cardId] = newQty;
+    }
+    renderReviewList();
+};
+
+function saveReviewedCollection() {
+    // Merge pending with actual collection
+    let myCollection = JSON.parse(localStorage.getItem('tcgp_collection') || '{}');
+    
+    Object.keys(pendingReviewCollection).forEach(id => {
+        // Can choose to Add or Overwrite. Let's Add for saftey, or user sets it.
+        // But since this is a scan, usually it's replacing. We'll overwrite matching cards.
+        myCollection[id] = pendingReviewCollection[id];
     });
 
     localStorage.setItem('tcgp_collection', JSON.stringify(myCollection));
     
     // Switch view to Collection automatically
-    setTimeout(() => {
-        document.getElementById('upload-zone').classList.remove('hidden');
-        document.getElementById('scan-status').classList.add('hidden');
-        
-        // Trigger generic tab switch via app.js navigation hook
-        document.querySelector('[data-target="view-collection"]').click();
-        
-        if(window.renderCollectionGrid) {
-            window.renderCollectionGrid();
-        }
-    }, 1500);
+    document.getElementById('upload-zone').classList.remove('hidden');
+    
+    // Trigger generic tab switch via app.js navigation hook
+    document.querySelector('[data-target="view-collection"]').click();
+    
+    if(window.renderCollectionGrid) {
+        window.renderCollectionGrid();
+    }
 }
