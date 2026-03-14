@@ -38,13 +38,30 @@
             <section id="view-scan" class="view-section active">
                 <div class="scan-container">
                     <h2>Scan Your Collection</h2>
-                    <p class="subtitle">Record your TCGP collection grid and let Gemini Vision catalog everything automatically.</p>
-                    
+                    <p class="subtitle">Upload screenshots and let Gemini Vision catalog your cards automatically.</p>
+
+                    <!-- Scan Mode Toggle -->
+                    <div class="scan-mode-toggle">
+                        <button class="mode-btn active" id="btn-mode-standard" onclick="setScanMode('standard')">📷 Standard Scan</button>
+                        <button class="mode-btn" id="btn-mode-edition" onclick="setScanMode('edition')">🔢 Edition View</button>
+                    </div>
+                    <p id="scan-mode-hint" class="scan-mode-hint">Gemini will identify card names and quantities from your screenshots.</p>
+
                     <div class="upload-zone" id="upload-zone">
                         <div class="upload-icon">📸</div>
-                        <h3>Gemini Vision Scan</h3>
-                        <p>Upload screenshots for AI scanning (Beta)</p>
-                        <input type="file" id="video-upload" accept="video/mp4,video/webm,video/quicktime,image/png,image/jpeg,image/webp" multiple hidden>
+                        <h3>Upload Screenshots</h3>
+                        <p>Tap to select images (multi-select supported)</p>
+                        <input type="file" id="video-upload" accept="image/png,image/jpeg,image/webp" multiple hidden>
+                    </div>
+
+                    <!-- Batch Upload Preview -->
+                    <div id="upload-preview-container" class="upload-preview-container hidden">
+                        <h3>Selected Screenshots</h3>
+                        <div id="upload-preview-grid" class="upload-preview-grid"></div>
+                        <div class="preview-actions">
+                            <button id="btn-cancel-upload" class="btn-ghost" onclick="cancelUpload()">Cancel</button>
+                            <button id="btn-confirm-upload" class="btn-primary" onclick="confirmUpload()">Scan with Gemini</button>
+                        </div>
                     </div>
 
                     <div class="quick-entry-panel">
@@ -55,16 +72,26 @@
                                 <option value="A1a">Mythical Island (A1a)</option>
                                 <option value="A2">Space-Time Smackdown (A2)</option>
                                 <option value="A2a">Triumphant Light (A2a)</option>
+                                <option value="A2b">Shining Revelry (A2b)</option>
+                                <option value="A3">Celestial Guardians (A3)</option>
+                                <option value="A3a">Extradimensional Crisis (A3a)</option>
+                                <option value="A3b">Eevee Grove (A3b)</option>
+                                <option value="A4">Wisdom of Sea and Sky (A4)</option>
+                                <option value="A4a">Secluded Springs (A4a)</option>
+                                <option value="B1">Mega Rising (B1)</option>
+                                <option value="B1a">Crimson Blaze (B1a)</option>
+                                <option value="B2">Fantastical Parade (B2)</option>
                                 <option value="P-A">Promo-A (P-A)</option>
                             </select>
-                            <input type="text" id="manual-numbers" placeholder="Card numbers (e.g. 12, 14, 55)">
+                            <input type="text" id="manual-numbers" placeholder="e.g. 1-20, 45, 67">
                             <button id="btn-manual-add" class="btn-primary">Add Cards</button>
                         </div>
+                        <p class="entry-hint" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 8px;">Supports ranges (1-20) and individual numbers (22, 45)</p>
                     </div>
 
                     <div id="scan-status" class="status-panel hidden">
                         <div class="loader"></div>
-                        <p id="scan-status-text">Analyzing video...</p>
+                        <p id="scan-status-text">Analyzing...</p>
                     </div>
                 </div>
             </section>
@@ -229,9 +256,49 @@
             </div>
         </div>
 
+        <!-- Review Scan Modal -->
+        <div id="modal-review" class="modal hidden">
+            <div class="modal-content review-modal-content">
+                <h2>Review Scan Results</h2>
+                <p>Verify the cards Gemini identified. Adjust quantities as needed.</p>
+                <div class="review-list" id="review-card-list"></div>
+                <div class="modal-actions" style="margin-top: 16px;">
+                    <button id="btn-cancel-review" class="btn-ghost">Cancel</button>
+                    <button id="btn-confirm-review" class="btn-primary">Add to Collection ✓</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Review Modal (Scan Results) -->
+        <div id="modal-review" class="modal hidden">
+            <div class="modal-content review-modal-content">
+                <h2>Review Scanned Cards</h2>
+                <p>Adjust quantities before adding to your collection.</p>
+                <div id="review-card-list" class="review-list"></div>
+                <div class="modal-actions">
+                    <button id="btn-cancel-review" class="btn-ghost">Cancel</button>
+                    <button id="btn-confirm-review" class="btn-primary">Add to Collection</button>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <!-- Scripts -->
+    <script src="data/set_a1.js"></script>
+    <script src="data/set_a1a.js"></script>
+    <script src="data/set_a2.js"></script>
+    <script src="data/set_a2a.js"></script>
+    <script src="data/set_a2b.js"></script>
+    <script src="data/set_a3.js"></script>
+    <script src="data/set_a3a.js"></script>
+    <script src="data/set_a3b.js"></script>
+    <script src="data/set_a4.js"></script>
+    <script src="data/set_a4a.js"></script>
+    <script src="data/set_b1.js"></script>
+    <script src="data/set_b1a.js"></script>
+    <script src="data/set_b2.js"></script>
+    <script src="data/set_pa.js"></script>
     <script src="cards.js"></script>
     <script src="gemini.js"></script>
     <script src="probability.js"></script>

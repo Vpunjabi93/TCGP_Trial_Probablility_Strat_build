@@ -202,6 +202,24 @@ async function loadCollectionFromCloud() {
 }
 
 // --- Manual Entry ---
+function expandNumberTokens(str) {
+    const tokens = str.split(/[,\s]+/).filter(t => t.trim() !== "");
+    const expanded = [];
+    tokens.forEach(token => {
+        const rangeMatch = token.match(/^(\d+)-(\d+)$/);
+        if (rangeMatch) {
+            const start = parseInt(rangeMatch[1], 10);
+            const end = parseInt(rangeMatch[2], 10);
+            for (let n = Math.min(start, end); n <= Math.max(start, end); n++) {
+                expanded.push(String(n));
+            }
+        } else {
+            expanded.push(token.trim());
+        }
+    });
+    return expanded;
+}
+
 function processManualAdd() {
     const setSelect = document.getElementById('manual-set-select');
     const numbersInput = document.getElementById('manual-numbers');
@@ -211,12 +229,12 @@ function processManualAdd() {
     const numbersStr = numbersInput.value;
     if (!numbersStr) return;
 
-    const numbers = numbersStr.split(/[,\s]+/).filter(n => n.trim() !== "");
+    const numbers = expandNumberTokens(numbersStr);
     let myCollection = JSON.parse(localStorage.getItem('tcgp_collection') || '{}');
     let addedCount = 0;
 
     numbers.forEach(num => {
-        const paddedNum = num.trim().padStart(3, '0');
+        const paddedNum = num.padStart(3, '0');
         const cardId = `${setCode}-${paddedNum}`;
         const card = TCGP_CARDS.find(c => c.id === cardId);
         if (card) {
