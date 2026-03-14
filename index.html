@@ -8,8 +8,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -21,7 +23,11 @@
                 <h1>TCGP Analyzer</h1>
             </div>
             <div class="header-actions">
-                <button id="api-key-btn" class="btn-ghost">API Key Setup</button>
+                <div id="user-status" class="user-status">
+                    <button id="auth-btn" class="btn-primary btn-sm">Sign In</button>
+                    <span id="user-email" class="hidden"></span>
+                </div>
+                <button id="api-key-btn" class="btn-ghost">API Key</button>
             </div>
         </header>
 
@@ -36,9 +42,24 @@
                     
                     <div class="upload-zone" id="upload-zone">
                         <div class="upload-icon">📸</div>
-                        <h3>Tap to Upload Screenshots</h3>
-                        <p>MP4, WEBM, PNG, or JPG<br><small>Tip: Select multiple screenshots for 100% accuracy!</small></p>
+                        <h3>Gemini Vision Scan</h3>
+                        <p>Upload screenshots for AI scanning (Beta)</p>
                         <input type="file" id="video-upload" accept="video/mp4,video/webm,video/quicktime,image/png,image/jpeg,image/webp" multiple hidden>
+                    </div>
+
+                    <div class="quick-entry-panel">
+                        <h3>Manual Quick Entry</h3>
+                        <div class="manual-controls">
+                            <select id="manual-set-select" class="dropdown">
+                                <option value="A1">Genetic Apex (A1)</option>
+                                <option value="A1a">Mythical Island (A1a)</option>
+                                <option value="A2">Space-Time Smackdown (A2)</option>
+                                <option value="A2a">Triumphant Light (A2a)</option>
+                                <option value="P-A">Promo-A (P-A)</option>
+                            </select>
+                            <input type="text" id="manual-numbers" placeholder="Card numbers (e.g. 12, 14, 55)">
+                            <button id="btn-manual-add" class="btn-primary">Add Cards</button>
+                        </div>
                     </div>
 
                     <div id="scan-status" class="status-panel hidden">
@@ -174,22 +195,36 @@
                 </div>
                 <div class="modal-actions">
                     <a href="https://aistudio.google.com/app/apikey" target="_blank" class="link">Get API Key &rarr;</a>
+                    <button onclick="showFirebaseConfigModal()" class="btn-ghost" style="font-size:0.8rem;">Firebase Config</button>
                     <button id="btn-save-key" class="btn-primary">Save Key</button>
                 </div>
             </div>
         </div>
 
-        <!-- Review Scan Modal for 100% Accuracy -->
-        <div id="modal-review" class="modal hidden">
-            <div class="modal-content review-modal-content">
-                <h2>Review Gemini Scan</h2>
-                <p id="review-status-text">Gemini found the following cards. Verify for 100% accuracy before saving.</p>
-                <div id="review-card-list" class="review-list">
-                    <!-- Populated by gemini.js dynamically -->
+        <!-- Auth Modal -->
+        <div id="modal-auth" class="modal hidden">
+            <div class="modal-content">
+                <h2 id="auth-title">Account Login</h2>
+                <p>Sync your collection to the cloud to access it anywhere.</p>
+                <div class="input-group">
+                    <input type="email" id="input-email" placeholder="Email Address">
+                    <input type="password" id="input-password" placeholder="Password" style="margin-top:10px;">
                 </div>
                 <div class="modal-actions">
-                    <button id="btn-cancel-review" class="btn-ghost">Cancel</button>
-                    <button id="btn-confirm-review" class="btn-primary">Confirm & Save</button>
+                    <button id="btn-auth-action" class="btn-primary">Login</button>
+                    <button id="btn-toggle-auth" class="btn-ghost">Need an account? Sign Up</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Firebase Config Modal -->
+        <div id="modal-firebase" class="modal hidden">
+            <div class="modal-content">
+                <h2>Firebase Cloud Config</h2>
+                <p>Paste your Firebase configuration object here to enable cloud accounts.</p>
+                <textarea id="input-firebase-config" placeholder='{ "apiKey": "...", "authDomain": "...", ... }' style="width:100%; height:150px; background:var(--bg-dark); color:white; border:1px solid var(--border-subtle); padding:10px; border-radius:8px; font-family:monospace;"></textarea>
+                <div class="modal-actions">
+                    <button id="btn-save-firebase" class="btn-primary">Save Config</button>
                 </div>
             </div>
         </div>

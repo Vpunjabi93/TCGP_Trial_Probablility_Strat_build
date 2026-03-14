@@ -6,11 +6,176 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function initApp() {
     setupNavigation();
+    initFirebase();
     checkApiKey();
     
     // Bind global buttons
     document.getElementById('api-key-btn').addEventListener('click', showApiModal);
     document.getElementById('btn-save-key').addEventListener('click', saveApiKey);
+    document.getElementById('auth-btn').addEventListener('click', showAuthModal);
+    document.getElementById('btn-toggle-auth').addEventListener('click', toggleAuthMode);
+    document.getElementById('btn-auth-action').addEventListener('click', handleAuthAction);
+    document.getElementById('btn-manual-add').addEventListener('click', processManualAdd);
+    document.getElementById('btn-save-firebase').addEventListener('click', saveFirebaseConfig);
+}
+
+// --- Firebase Integration ---
+let db;
+let auth;
+let currentUser = null;
+
+function initFirebase() {
+    const configStr = localStorage.getItem('firebase_config');
+    if (!configStr) {
+        console.warn("Firebase not configured.");
+        return;
+    }
+
+    try {
+        const firebaseConfig = JSON.parse(configStr);
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        db = firebase.firestore();
+        auth = firebase.auth();
+
+        auth.onAuthStateChanged(user => {
+            currentUser = user;
+            updateAuthUI(user);
+            if (user) {
+                loadCollectionFromCloud();
+            }
+        });
+    } catch (e) {
+        console.error("Firebase Init Error:", e);
+    }
+}
+
+function updateAuthUI(user) {
+    const authBtn = document.getElementById('auth-btn');
+    const userEmail = document.getElementById('user-email');
+    if (user) {
+        authBtn.innerText = "Sign Out";
+        userEmail.innerText = user.email;
+        userEmail.classList.remove('hidden');
+    } else {
+        authBtn.innerText = "Sign In";
+        userEmail.classList.add('hidden');
+    }
+}
+
+function showAuthModal() {
+    if (currentUser) {
+        auth.signOut();
+        return;
+    }
+    document.getElementById('modal-auth').classList.remove('hidden');
+}
+
+function toggleAuthMode() {
+    const title = document.getElementById('auth-title');
+    const btn = document.getElementById('btn-auth-action');
+    const toggle = document.getElementById('btn-toggle-auth');
+    if (btn.innerText === "Login") {
+        title.innerText = "Create Account";
+        btn.innerText = "Sign Up";
+        toggle.innerText = "Already have an account? Login";
+    } else {
+        title.innerText = "Account Login";
+        btn.innerText = "Login";
+        toggle.innerText = "Need an account? Sign Up";
+    }
+}
+
+async function handleAuthAction() {
+    const email = document.getElementById('input-email').value;
+    const pass = document.getElementById('input-password').value;
+    const btnText = document.getElementById('btn-auth-action').innerText;
+
+    if (!auth) {
+        alert("Please configure Firebase first (click API Key -> Config)!");
+        showFirebaseConfigModal();
+        return;
+    }
+
+    try {
+        if (btnText === "Login") {
+            await auth.signInWithEmailAndPassword(email, pass);
+        } else {
+            await auth.createUserWithEmailAndPassword(email, pass);
+        }
+        document.getElementById('modal-auth').classList.add('hidden');
+    } catch (e) {
+        alert(e.message);
+    }
+}
+
+function showFirebaseConfigModal() {
+    document.getElementById('modal-firebase').classList.remove('hidden');
+    const existing = localStorage.getItem('firebase_config');
+    if (existing) document.getElementById('input-firebase-config').value = existing;
+}
+
+function saveFirebaseConfig() {
+    const config = document.getElementById('input-firebase-config').value.trim();
+    try {
+        JSON.parse(config); // validate
+        localStorage.setItem('firebase_config', config);
+        document.getElementById('modal-firebase').classList.add('hidden');
+        location.reload(); // Reload to init firebase
+    } catch (e) {
+        alert("Invalid JSON config!");
+    }
+}
+
+// --- Cloud Sync ---
+async function syncCollectionToCloud() {
+    if (!currentUser || !db) return;
+    const myCollection = JSON.parse(localStorage.getItem('tcgp_collection') || '{}');
+    await db.collection('users').doc(currentUser.uid).set({
+        collection: myCollection,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+}
+
+async function loadCollectionFromCloud() {
+    if (!currentUser || !db) return;
+    const doc = await db.collection('users').doc(currentUser.uid).get();
+    if (doc.exists && doc.data().collection) {
+        localStorage.setItem('tcgp_collection', JSON.stringify(doc.data().collection));
+        renderCollectionGrid();
+    }
+}
+
+// --- Manual Entry Overhaul ---
+function processManualAdd() {
+    const setCode = document.getElementById('manual-set-select').value;
+    const numbersStr = document.getElementById('manual-numbers').value;
+    if (!numbersStr) return;
+
+    const numbers = numbersStr.split(/[,\s]+/).filter(n => n.trim() !== "");
+    let myCollection = JSON.parse(localStorage.getItem('tcgp_collection') || '{}');
+    let addedCount = 0;
+
+    numbers.forEach(num => {
+        const paddedNum = num.trim().padStart(3, '0');
+        const cardId = `${setCode}-${paddedNum}`;
+        const card = TCGP_CARDS.find(c => c.id === cardId);
+        if (card) {
+            myCollection[cardId] = (myCollection[cardId] || 0) + 1;
+            addedCount++;
+        }
+    });
+
+    if (addedCount > 0) {
+        localStorage.setItem('tcgp_collection', JSON.stringify(myCollection));
+        renderCollectionGrid();
+        syncCollectionToCloud();
+        alert(`Successfully added ${addedCount} cards to your collection!`);
+        document.getElementById('manual-numbers').value = "";
+    } else {
+        alert("No valid card numbers found for this set.");
+    }
 }
 
 // --- Navigation (SPA Routing) ---
@@ -173,6 +338,7 @@ window.updateQty = function(cardId, change) {
     }
     
     localStorage.setItem('tcgp_collection', JSON.stringify(myCollection));
+    syncCollectionToCloud();
     
     // Maintain search context on re-render
     const currentSearch = document.getElementById('search-cards').value;
