@@ -38,10 +38,13 @@ async function processVideoWithGemini(file) {
         const base64Video = await fileToBase64(file);
         const mimeType = file.type || 'video/mp4';
 
-        statusText.innerText = "Gemini is scanning your collection...";
+        statusText.innerText = `Gemini is scanning your ${file.type.startsWith('image/') ? 'screenshot' : 'video'}...`;
+
+        const isImage = file.type.startsWith('image/');
+        const mediaTypeLabel = isImage ? "screenshot" : "screen recording";
 
         const prompt = `
-        This is a screen recording of a Pokémon TCG Pocket card collection. 
+        This is a ${mediaTypeLabel} of a Pokémon TCG Pocket card collection. 
         For each distinct card visibly shown in the grid, return the card name and how many copies of it appear (look at the quantity badges).
         Only return a strict JSON array of objects with 'name' and 'count' properties. No markdown, no extra text.
         Example: [{"name":"Pikachu EX","count":1},{"name":"Charmander","count":3}]
@@ -86,7 +89,7 @@ async function processVideoWithGemini(file) {
 
     } catch (error) {
         console.error("Gemini Error:", error);
-        alert(`Analysis failed: ${error.message}\nMake sure your video is short (< 15 seconds) and your API key is valid.`);
+        alert(`Analysis failed: ${error.message}\nEnsure your API key is valid, and media is not too large.`);
         uploadZone.classList.remove('hidden');
         statusPanel.classList.add('hidden');
     }

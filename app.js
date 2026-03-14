@@ -134,11 +134,17 @@ window.renderCollectionGrid = function(searchQuery = '') {
         if(card.type === 'Supporter' || card.type === 'Item') colorVar = '#8b949e';
         cardEl.style.borderTop = `4px solid ${colorVar}`;
 
+        const imgHtml = card.img 
+            ? `<img src="${card.img}" class="card-real-img" alt="${card.name}" loading="lazy">`
+            : `<div class="card-img-placeholder">${card.type ? card.type : card.stage}</div>`;
+
         cardEl.innerHTML = `
             ${isOwned ? `<div class="qty-badge">&times;${qty}</div>` : ''}
-            <div class="card-img-placeholder">${card.type ? card.type : card.stage}</div>
-            <div class="card-name">${card.name}</div>
-            <div class="card-set">${card.set} • ${card.rarity}</div>
+            ${imgHtml}
+            <div class="card-info">
+                <div class="card-name">${card.name}</div>
+                <div class="card-set">${card.set} • ${card.rarity}</div>
+            </div>
             <div class="qty-controls">
                 <button class="qty-btn" onclick="updateQty('${card.id}', -1)">-</button>
                 <button class="qty-btn" onclick="updateQty('${card.id}', 1)">+</button>
@@ -273,11 +279,24 @@ window.renderDeckBuilderSlots = function() {
             if(card.type === 'Supporter' || card.type === 'Item') colorVar = '#8b949e';
             slotEl.style.borderColor = colorVar;
 
+            const bgHtml = card.img 
+                ? `background-image: url('${card.img}'); background-size: cover; background-position: center; border: none;` 
+                : '';
+
             slotEl.innerHTML = `
-                <div style="font-size:0.7rem; text-align:center;">${card.name}</div>
+                ${card.img ? '' : `<div style="font-size:0.7rem; text-align:center;">${card.name}</div>`}
                 <div class="remove-card" onclick="removeFromDeck(${i})">×</div>
             `;
+            
+            if (card.img) {
+                slotEl.style.backgroundImage = `url('${card.img}')`;
+                slotEl.style.backgroundSize = 'cover';
+                slotEl.style.backgroundPosition = 'center';
+                slotEl.style.border = '1px solid var(--accent-gold)';
+            }
+
         } else {
+            slotEl.style.backgroundImage = 'none';
             slotEl.innerHTML = '<span style="color:var(--border-subtle);font-size:0.8rem;">Empty</span>';
         }
         
